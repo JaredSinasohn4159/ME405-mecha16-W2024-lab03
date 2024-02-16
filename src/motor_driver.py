@@ -38,7 +38,6 @@ class MotorDriver:
         self.ch2 = self.timer.channel(2, pyb.Timer.PWM, pin=self.in2pin)
         self.ch1.pulse_width_percent(0)
         self.ch2.pulse_width_percent(0)
-        print ("Creating a motor driver")
     
         
     def set_duty_cycle (self, level):
@@ -54,36 +53,32 @@ class MotorDriver:
         try:
             level = float(level)
             if level < 0: #for negative in range
-                print (f"Setting duty cycle to {level}")
-                print('negative in range') #debugging
                 self.en_pin.high() #enable the motor
-                self.ch2.pulse_width_percent(0) #set in2 to zero
+                self.ch1.pulse_width_percent(0) #set in2 to zero
                 # if the level is greater than -100, nothing happens
                 # if it is less than -100, set the PWM to 100
                 # this saturates the level to -100 regardless of how big the level is
                 if level >= -100:
-                    self.ch1.pulse_width_percent(abs(level))
+                    self.ch2.pulse_width_percent(abs(level))
                 else:
-                    self.ch1.pulse_width_percent(100)
+                    self.ch2.pulse_width_percent(100)
             elif level > 0: #for positive in range
-                print (f"Setting duty cycle to {level}")
-                print('positive in range') #debugging
                 self.en_pin.high() #enable the motor
-                self.ch1.pulse_width_percent(0) #set in1 to zero
+                self.ch2.pulse_width_percent(0) #set in1 to zero
                 # if the level is less than 100, nothing happens
                 # if it is greater than 100, set the PWM to 100
                 # this saturates the level to 100 regardless of how big the level is
                 if level <= 100:
-                    self.ch2.pulse_width_percent(level)
+                    self.ch1.pulse_width_percent(level)
                 else:
-                    self.ch2.pulse_width_percent(100)  
+                    self.ch1.pulse_width_percent(100)  
             else:
-                print (f"Setting duty cycle to {level}")
                 self.ch1.pulse_width_percent(0)
                 self.ch2.pulse_width_percent(0)
         except ValueError:
-            print('invalid level value')
-        
+            self.ch1.pulse_width_percent(0)
+            self.ch2.pulse_width_percent(0)
+            raise ValueError
 if __name__ == "__main__":
     # power the motor for five seconds 
     en_pin =  pyb.Pin(pyb.Pin.board.PA10, mode = pyb.Pin.OPEN_DRAIN, pull = pyb.Pin.PULL_UP, value=1)
@@ -95,5 +90,8 @@ if __name__ == "__main__":
     utime.sleep(5)
     motor.set_duty_cycle(0)
     
+
+
+
 
 

@@ -8,11 +8,13 @@ an encoder input reading.
 @author Jared Sinasohn, Sydney Ulvick, Sean Nakashimo
 @date 22-Feb-2024
 """
+
 import micropython
 import pyb
 import utime
-import encoder_reader.py
-import motor_driver.py
+from Lab3.encoder_reader import Encoder
+from Lab3.motor_driver import MotorDriver
+
 class CLController:
     """! 
     This class implements a closed loop controller based on an input sensor.  This class uses previously created . 
@@ -28,7 +30,6 @@ class CLController:
         @param kd - derivative controller constant
         @param reference - the target postition for the controller to aim for
         """
-        self.sensor = sensor
         self.kp = kp
         self.ki = ki
         self.kd = kd
@@ -36,14 +37,17 @@ class CLController:
         # the effort the controller will send to the motor in percentage
         self.eff = 0
         # current value is the current reading of the sensor
-        self.curr = self.sensor.read()
+        self.curr = 0
         # error is how far current value is from sensor
         self.err = self.setpoint - self.curr
         self.err_acc = 0
         self.prev_err_list = []
         self.deriv_amount = 10
         self.update_time = 10
-        print (f"Creating controller with kp = {kp}, ki = {ki}, and kd = {kd}")
+        self.t_list = []
+        self.pos_list = []
+        self.initial_time = utime.ticks_ms()
+        self.curr_time = utime.ticks_diff(utime.ticks_ms(),self.initial_time)
     
     # why would this method accept the setpoint
     def run(self, measured):
@@ -53,29 +57,50 @@ class CLController:
         PID Controller approach
         """
         self.curr = measured
+        self.curr_time = utime.ticks_diff(utime.ticks_ms(),self.initial_time)
+        self.t_list.append(self.curr_time)
+        self.pos_list.append(self.curr)
         self.err = self.setpoint - self.curr
         self.err_acc += self.err
-        self.eff = self.kd*self.err + self.ki*self.err_acc
-        self.prev_err_list.append(self.err)
-        if self.kd > 0 and self.prev_err_list >= self.deriv_amount
-            err_slope = (self.prev_err_list(self.deriv_amount-1)-self.prev_err_list(0))/(self.deriv_amount*self.update_time)
+        self.eff = self.kp*self.err + self.ki*self.err_acc
+        if self.kd > 0:
+            self.prev_err_list.append(self.err)
+        if self.kd > 0 and len(self.prev_err_list) >= self.deriv_amount:
+            err_slope = (self.prev_err_list[self.deriv_amount-1]-self.prev_err_list[0])/(self.deriv_amount*self.update_time)
             self.eff += self.kd*err_slope
-            self.prev_err_list.pop(0)            
+            self.prev_err_list.pop(0)
         return self.eff
 
-    def set_setpoint(self, setpoint)
+    def set_setpoint(self, setpoint):
         self.setpoint = setpoint
         
-    def set_kp(self, kp)
+    def set_kp(self, kp):
         self.kp = kp
     
-    def set_ki(self, ki)
+    def set_ki(self, ki):
         self.ki = self.ki
+        
+    def get_t_list(self):
+        return self.t_list
     
+    def get_pos_list(self):
+        return self.pos_list
     
+    def get_curr_time(self):
+        return self.curr_time
     
+    def reset_controller(self):
+        self.t_list = 0
+        self.pos_list = 0
+        self.err = 0
+        self.eff = 0
+        self.err_acc = 0
+        self.curr = 0
+        self.initial_time = utime.ticks_ms()
+        self.curr_time = diff(utime.ticks_ms(),self.initial_time)
+        
+        
 if __name__ == "__main__":
-    sleep_time = 10
     # create pin to power motor
     en_pin =  pyb.Pin(pyb.Pin.board.PA10, mode = pyb.Pin.OPEN_DRAIN, pull = pyb.Pin.PULL_UP, value=1)
     
@@ -86,10 +111,10 @@ if __name__ == "__main__":
     in2pin = pyb.Pin(pyb.Pin.board.PB5, pyb.Pin.OUT_PP)
     
     # create timer for pwm
-    timer = pyb.Timer(3, freq=5000) #setting frequency for motor
+    timer = pyb.Timer(3, freq=25000) #setting frequency for motor
     
     # create motor object
-    motor = MotorDriver(en_pin,in1pin,in2pin,timer,ch1,ch2) #call to the motor class you just made!
+    motor = MotorDriver(en_pin,in1pin,in2pin,timer) #call to the motor class you just made!
 
     # create the pin object to read encoder channel A
     pin1 = pyb.Pin(pyb.Pin.board.PC6, pyb.Pin.IN)
@@ -105,9 +130,18 @@ if __name__ == "__main__":
     encoder = Encoder(pin1, pin2, timer)
     
     # create controller object
-    con = CLController(.5, 0, 0, 10000)
+    con = CLController(1.63, 0, 0.3, 90)
     while True:
-        measured = encoder.read()
-        eff = con.run(measured)
-        motor.set_duty_cycle(eff)
-        utime.sleep_ms(sleep_time)
+        try:
+            encoder_reading = encoder.read()
+            encoder_angle = encoder_reading/16/256/4*360
+            eff = con.run(encoder_angle)
+            motor.set_duty_cycle(eff)
+        except KeyboardInterrupt:
+            motor.set_duty_cycle(0)
+            raise KeyboardInterrupt
+        except ValueError:
+            motor.set_duty_cycle(0)
+            raise ValueError
+        utime.sleep_ms(1)
+
