@@ -21,7 +21,7 @@ def plot(plot_axes, plot_canvas, xlabel, ylabel, kp):
     """!
     This function is a way to embed a plot into a GUI.
     The data is read through the USB-serial port and processsed to make two lists which
-    will contain both our time and voltage readings.
+    will contain both our time and position of the motor readings.
     @param plot_axes The plot axes supplied by Matplotlib
     @param plot_canvas The plot canvas, also supplied by Matplotlib
     @param xlabel The label for the plot's horizontal axis
@@ -31,10 +31,13 @@ def plot(plot_axes, plot_canvas, xlabel, ylabel, kp):
     # Opening a serial port
     #https://friendlyuser.github.io/posts/tech/2023/Using_PySerial_in_Python_A_Comprehensive_Guide/
     ser=serial.Serial('COM3',115200, timeout=.001) #assign port name and read rate (bps), timeout is the delay
-    #ser.write(b'\x03') #soft reset, executes main again, can be accomplished by plugging in and out again
     #print(str(kp).encode())
+    
+    #get value of Kp from main, \r\n emulates a enter from input function
     kpstr = str(kp) + "\r\n"
+    #ensure only new data is sent through serial port
     ser.reset_output_buffer()
+    #write data to serial port, encode needed to ensure in kp is in proper format for serial (bytes)
     ser.write(kpstr.encode())
     #creating empty lists for our data
     time = [] 
@@ -43,8 +46,8 @@ def plot(plot_axes, plot_canvas, xlabel, ylabel, kp):
     #iterating through each line, removing/ modifying bad data
     while True:
         line = ser.readline().decode('utf-8')  # reads a line of data and decodes it as
-        line = line.split(",")
-        if len(line)<2:
+        line = line.split(",") 
+        if len(line)<2: #if one or both values are missing data
             continue
         line = [line[0], line[1]]
         line[0] = (line[0].strip()).replace(" ", "")
@@ -54,7 +57,7 @@ def plot(plot_axes, plot_canvas, xlabel, ylabel, kp):
             pos.append(float(line[1]))
         except ValueError:
             continue
-        if float(line[0]) >= 600:
+        if float(line[0]) >= 600: #getting targeting our position cutoff, ideally dont hardcode
             break
 
     
