@@ -3,6 +3,6 @@
   
   For our step-response test, we prompted the motor to do 360 degree turn (the setpoint inpput). In the GUI, we created a get text prompt in order to enter in Kp values. main.py was then written to collect the time and position until the controller would prompt the motor to stop. Once stopped, it would print values of time and position in a 2 column matrix. This data was then read through the serial port for graphing. We also connected our motor to a large aluminum flywheel as to add some inertia to our system so that our results were more substantial between Kp values. 
   
-  We tested the Kp around our nominally appropriate value from testing which was 1. This value was found by continually running our step response until we got the fastest response time with very slight overshoot. The other two values were .5 and 5. The Kp value of.5 was chosen due to its slow response while still maintaning sizable results. The Kp value of 5 was chosen to show a oscillatory response.
+  We tested the Kp around our nominally appropriate value from testing which was 1. This value was found by continually running our step response until we got the fastest response time with very slight overshoot. The other two values were .5 and 5. The Kp value of.5 was chosen due to its slow response while still maintaning sizable results. The Kp value of 5 was chosen to show a oscillatory response, overshooting twice.
   The results of our test are shown in the plot below, with all three values of Kp overlapped on the same graph.
   
