@@ -90,14 +90,14 @@ class CLController:
         return self.curr_time
     
     def reset_controller(self):
-        self.t_list = 0
-        self.pos_list = 0
+        self.t_list = []
+        self.pos_list = []
         self.err = 0
         self.eff = 0
         self.err_acc = 0
         self.curr = 0
         self.initial_time = utime.ticks_ms()
-        self.curr_time = diff(utime.ticks_ms(),self.initial_time)
+        self.curr_time = utime.ticks_ms()-self.initial_time
         
         
 if __name__ == "__main__":

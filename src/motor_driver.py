@@ -79,6 +79,7 @@ class MotorDriver:
             self.ch1.pulse_width_percent(0)
             self.ch2.pulse_width_percent(0)
             raise ValueError
+
 if __name__ == "__main__":
     # power the motor for five seconds 
     en_pin =  pyb.Pin(pyb.Pin.board.PA10, mode = pyb.Pin.OPEN_DRAIN, pull = pyb.Pin.PULL_UP, value=1)

@@ -1,120 +1,100 @@
 """!
 @file main.py
-This file contains the testing and running of the CLController class.
-The file creates a motor object, an encoder object, and a CLController
-object.  The program then runs P control, gets motor position and time
-data, and plots the step response.
-
-@author Jared Sinasohn, Sydney Ulvick, Sean Nakashimo
-@date 22-Feb-2024
+This file produces a step response on the nucleo micro processor through the pin C0
+and collects data from the pin B0 about the voltage of an RC circuit.  That data is
+then printed in the console.
 """
 
-import time
-import tkinter
-from random import random
-import serial
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,
-NavigationToolbar2Tk)
+import micropython
+import pyb
+import utime
+from Lab3.encoder_reader import Encoder
+from Lab3.motor_driver import MotorDriver
+from Lab3.controller import CLController
 
-def plot(plot_axes, plot_canvas, xlabel, ylabel):
-    """!
-    This function is a way to embed a plot into a GUI.
-    The data is read through the USB-serial port and processsed to make two lists which
-    will contain both our time and voltage readings.
-    @param plot_axes The plot axes supplied by Matplotlib
-    @param plot_canvas The plot canvas, also supplied by Matplotlib
-    @param xlabel The label for the plot's horizontal axis
-    @param ylabel The label for the plot's vertical axis
-    """
-    # Opening a serial port
-    #https://friendlyuser.github.io/posts/tech/2023/Using_PySerial_in_Python_A_Comprehensive_Guide/
-    ser=serial.Serial('COM3',115200, timeout=.001) #assign port name and read rate (bps), timeout is the delay
-    ser.write(b'\x04') #soft reset, executes main again, can be accomplished by plugging in and out again
-    #creating empty lists for our data
-    time = [] 
-    pos = []
-    i = 0
-    #iterating through each line, removing/ modifying bad data
-    while True:
-        line = ser.readline().decode('utf-8')  # reads a line of data and decodes it as
-        line = line.split(",")
-        if len(line)<2:
-            continue
-        line = [line[0], line[1]]
-        line[0] = (line[0].strip()).replace(" ", "")
-        line[1] = (line[1].strip()).replace(" ", "")
-        try:
-            print(line)
-            time.append(float(line[0]))
-            voltage.append(float(line[1]))
-        except:
-            continue
-        if float(line[0]) == 1990:
-            break
-
+def motor_setup():
+    # create pin to power motor
+    en_pin =  pyb.Pin(pyb.Pin.board.PA10, mode = pyb.Pin.OPEN_DRAIN, pull = pyb.Pin.PULL_UP, value=1)
     
-# Draw the plot. Of course, the axes must be labeled. A grid is optional
-    plot_axes.plot(time, pos)
-    plot_axes.set_xlabel(xlabel)
-    plot_axes.set_ylabel(ylabel)
-    plot_axes.grid(True)
-    plot_axes.plot(time, tvoltage)
-    #plot_axes.legend("Experimental", "Theoretical")
-    plot_canvas.draw() #ensures updated plot 
+    # create first pwm pin
+    in1pin = pyb.Pin(pyb.Pin.board.PB4, pyb.Pin.OUT_PP)
+    
+    # create first pwm pin
+    in2pin = pyb.Pin(pyb.Pin.board.PB5, pyb.Pin.OUT_PP)
+    
+    # create timer for pwm
+    timer = pyb.Timer(3, freq=25000) #setting frequency for motor
+    
+    # create and return motor object
+    return MotorDriver(en_pin,in1pin,in2pin,timer) #call to the motor class you just made!
+        
+def encoder_setup():
+    # create the pin object to read encoder channel A
+    pin1 = pyb.Pin(pyb.Pin.board.PC6, pyb.Pin.IN)
+    
+    # create the pin object to read encoder channel B
+    pin2 = pyb.Pin(pyb.Pin.board.PC7, pyb.Pin.IN)
+    
+    # create the timer object.  For C6 and C7 use timer 8,
+    # set the prescaler to zero and the period to the max 16bit number
+    timer = pyb.Timer(8, prescaler = 0, period = 65535)
+    
+    # create the encoder object
+    encoder = Encoder(pin1, pin2, timer)
+    encoder.zero()
+    return encoder
 
-def tk_matplot(plot_function, xlabel, ylabel, title):
+
+# interupt callback fucntion    
+
+def step_response (controller, motor, encoder, frequency, collection_time):
     """!
-    Create a TK window with one embedded Matplotlib plot.
-    This function makes the window, displays it, and runs the user interface
-    until the user closes the window. The plot function, which must have been
-    supplied by the user, should draw the plot on the supplied plot axes and
-    call the draw() function belonging to the plot canvas to show the plot.
-    @param plot_function The function which, when run, creates a plot
-    @param xlabel The label for the plot's horizontal axis
-    @param ylabel The label for the plot's vertical axis
-    @param title A title for the plot; it shows up in window title bar
+    This function initiates a step output voltage in pin C0 and enables timer
+    interrupts to allow for the accurate collection of RC voltage data through
+    pin B0.  The function then generates a queue of time data based on the times
+    the voltage data was collected and prints the time and voltage data to the
+    console.
+    @param   t_channel The timer channel to use for interrupts
+    @param   frequency How often the program should collect data in Hz
+    @param   collection_time How long the program should collect data for
     """
-# Create the main program window and give it a title
-    tk_root = tkinter.Tk()
-    tk_root.wm_title(title)
-# Create a Matplotlib
-    fig = Figure()
-    axes = fig.add_subplot()
-# Create the drawing canvas and a handy plot navigation toolbar
-    canvas = FigureCanvasTkAgg(fig, master=tk_root)
-    toolbar = NavigationToolbar2Tk(canvas, tk_root, pack_toolbar=False)
-    toolbar.update()
-# Create the buttons that run tests, clear the screen, and exit the program
-    button_quit = tkinter.Button(master=tk_root,
-    text="Quit",
-    command=tk_root.destroy)
-    button_clear = tkinter.Button(master=tk_root,
-    text="Clear",
-    command=lambda: axes.clear() or canvas.draw())
-    button_run = tkinter.Button(master=tk_root,
-    text="Run Test",
-    command=lambda: plot_function(axes, canvas, xlabel, ylabel))
-    kp = 0
-    ser=serial.Serial('COM3',115200, timeout=.001)
-    kp_text = tkinter.Entry(tk_root,textvariable=kp)
-    ser.write((f"{kp_text}\n").encode('utf-8'))
-# Arrange things in a grid because "pack" is weird
-    canvas.get_tk_widget().grid(row=0, column=0, columnspan=3)
-    toolbar.grid(row=1, column=0, columnspan=3)
-    button_run.grid(row=2, column=0)
-    button_clear.grid(row=2, column=1)
-    button_quit.grid(row=2, column=2)
-    kp_text.grid(row=2, column=3)
-# This function runs the program until the user decides to quit
-    tkinter.mainloop()
-# This main code is run if this file is the main program but won't run if this
-# file is imported as a module by some other main program
+    
+    
+    # We want to run this program until the keyboard interrupts the program so
+    # that we can stop the program if necessary
+    try:
+        while controller.get_curr_time() < (collection_time*1000):
+            encoder_reading = encoder.read()
+            encoder_angle = encoder_reading/16/256/4*360
+            eff = con.run(encoder_angle)
+            motor.set_duty_cycle(eff)
+            utime.sleep_ms(int(1/frequency*1000))
+        times = controller.get_t_list()
+        positions = controller.get_pos_list()
+        for i in range(len(times)):
+            print(f"{times[i]},{positions[i]}")
+        motor.set_duty_cycle(0)
+    except KeyboardInterrupt:  # keyboard interrupt to exit program (ctrl+c)
+            motor.set_duty_cycle(0)
+            print("program ended")
+            raise KeyboardInterrupt
 
 if __name__ == "__main__":
-    tk_matplot(plot,
-    xlabel="Time (ms)",
-    ylabel="Voltage (V)",
-    title="Voltage vs Time")
+    motor = motor_setup()
+    encoder = encoder_setup()
+    while True:
+        motor.set_duty_cycle(0)
+        encoder.zero()
+        kp = input("Enter a Kp value: ")
+        try:
+            kp = float(kp)
+        except:
+            raise ValueError("kp must be a positive float")
+        if kp < 0:
+            raise ValueError("kp must be a positive float")
+        # create controller object
+        con = CLController(kp, 0, 0, 180)
+        con.reset_controller()
+        step_response(con, motor, encoder, 100, 1.5)
 
 
