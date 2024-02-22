@@ -6,3 +6,4 @@
   We tested the Kp around our nominally appropriate value from testing which was 1. This value was found by continually running our step response until we got the fastest response time with very slight overshoot. The other two values were .5 and 5. The Kp value of.5 was chosen due to its slow response while still maintaning sizable results. The Kp value of 5 was chosen to show a oscillatory response, overshooting twice.
   The results of our test are shown in the plot below, with all three values of Kp overlapped on the same graph.
   
+![image](https://github.com/JaredSinasohn4159/ME405-mecha16-W2024-lab03/assets/156977553/54269aad-269d-4ae3-8984-70ca1f4295ce)
